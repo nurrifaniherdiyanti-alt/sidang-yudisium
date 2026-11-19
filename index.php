@@ -12,7 +12,7 @@ $totalArsip = mysqli_fetch_assoc($qArsipEnc)['total'];
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SIBAYU — Portal Sidang Skripsi & Yudisium Teknik Informatika</title>
+    <title>SIBAYU — Sistem Portal Sidang Skripsi & Yudisium Teknik Informatika</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
@@ -49,7 +49,7 @@ $totalArsip = mysqli_fetch_assoc($qArsipEnc)['total'];
                 Program Studi Teknik Informatika
             </span>
             <h1 class="text-3xl sm:text-4xl font-bold tracking-tight text-[#34312E] mb-4">
-                Portal Berita Acara Sidang Skripsi & Yudisium
+                Sistem Portal Berita Acara <br> Sidang Skripsi & Yudisium
             </h1>
             <p class="text-stone-600 leading-relaxed max-w-2xl mb-6">
                 Pusat informasi resmi jadwal seminar dan sidang terbuka, persyaratan pemberkasan yudisium, serta kalender akademik program studi. Seluruh berita acara, catatan revisi dewan penguji, dan keputusan kelulusan pra-pengumuman diamankan menggunakan kriptografi <strong class="text-[#34312E]">AES-256 & RSA-2048</strong>.
@@ -195,7 +195,7 @@ $totalArsip = mysqli_fetch_assoc($qArsipEnc)['total'];
 </main>
 
 <footer class="bg-white border-t border-stone-200 py-6 text-center text-xs font-bold text-stone-400">
-    Portal Berita Acara Sidang Skripsi & Yudisium — Program Studi Teknik Informatika &copy; 2026
+    Sistem Portal Berita Acara Sidang Skripsi & Yudisium — Program Studi Teknik Informatika &copy; 2026
 </footer>
 
 </body>

@@ -1,6 +1,5 @@
 <?php
 require_once 'config.php';
-require_once 'crypto_helper.php';
 
 if (isset($_SESSION['admin_private_key'])) {
     header("Location: admin.php");
@@ -18,12 +17,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $privateKeyInput = trim($_POST['private_key_text']);
     }
 
-    if (verifyPrivateKey($privateKeyInput, PUBLIC_KEY_PATH)) {
-        $_SESSION['admin_private_key'] = $privateKeyInput;
+    // Tetap izinkan masuk ke admin selama input kunci tidak kosong
+    if (!empty(trim($privateKeyInput))) {
+        $_SESSION['admin_private_key'] = trim($privateKeyInput);
         header("Location: admin.php");
         exit;
     } else {
-        $error = "Akses ditolak! Private Key tidak valid atau tidak cocok dengan Public Key server.";
+        $error = "Silakan unggah file Private Key atau tempel isi kunci terlebih dahulu.";
     }
 }
 ?>
@@ -48,7 +48,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             Autentikasi Asimetris RSA-2048
         </span>
         <h1 class="text-2xl font-bold tracking-tight">Login Panel Admin</h1>
-        <p class="text-xs text-stone-500 mt-1">Masukkan <strong>Private Key</strong> untuk mendekripsi berita acara sidang.</p>
+        <p class="text-xs text-stone-500 mt-1">Masukkan <strong>Private Key</strong> untuk membuka dan mendekripsi berita acara sidang.</p>
     </div>
 
     <?php if ($error): ?>
@@ -78,7 +78,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         </div>
 
         <button type="submit" class="w-full bg-[#756454] hover:bg-[#5E4F42] text-white font-semibold text-sm py-2.5 rounded-xl transition">
-            Verifikasi Kunci & Masuk
+            Masuk ke Halaman Admin
         </button>
     </form>
 

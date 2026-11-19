@@ -30,16 +30,53 @@ function verifyPrivateKey($privateKeyPem, $publicKeyPath) {
 }
 
 /**
- * Enkripsi Hybrid Berita Acara Sidang (AES-256-CBC + RSA-2048)
+ * Enkripsi Hybrid untuk seluruh konten halaman admin (AES-256-CBC + RSA-2048)
+ */
+function hybridEncryptPageContent($htmlContent, $publicKeyPath) {
+    $pubKey = openssl_pkey_get_public(file_get_contents($publicKeyPath));
+
+    $aesKey = random_bytes(32);
+    $iv     = random_bytes(16);
+
+    $ciphertext = openssl_encrypt($htmlContent, 'AES-256-CBC', $aesKey, 0, $iv);
+    openssl_public_encrypt($aesKey, $encryptedAesKey, $pubKey);
+
+    return [
+        'ciphertext'        => $ciphertext,
+        'encrypted_aes_key' => base64_encode($encryptedAesKey),
+        'iv'                => base64_encode($iv)
+    ];
+}
+
+/**
+ * Dekripsi Hybrid untuk seluruh konten halaman admin menggunakan Private Key
+ */
+function hybridDecryptPageContent($encryptedPackage, $privateKeyPem) {
+    $privKey = @openssl_pkey_get_private($privateKeyPem);
+    if (!$privKey) {
+        return false;
+    }
+
+    $encryptedAesKey = base64_decode($encryptedPackage['encrypted_aes_key']);
+    if (!@openssl_private_decrypt($encryptedAesKey, $aesKey, $privKey)) {
+        return false;
+    }
+
+    $iv = base64_decode($encryptedPackage['iv']);
+    $decryptedHtml = openssl_decrypt($encryptedPackage['ciphertext'], 'AES-256-CBC', $aesKey, 0, $iv);
+
+    return ($decryptedHtml !== false) ? $decryptedHtml : false;
+}
+
+/**
+ * Enkripsi Hybrid Berita Acara Sidang sebelum disimpan ke database (AES-256-CBC + RSA-2048)
  */
 function hybridEncryptBeritaAcara($data, $publicKeyPath) {
     $pubKey = openssl_pkey_get_public(file_get_contents($publicKeyPath));
 
-    // 1. Buat kunci simetris AES-256 (32 byte) dan IV (16 byte) acak
     $aesKey = random_bytes(32);
     $iv     = random_bytes(16);
 
-    // 2. Enkripsi seluruh konten admin dengan Kriptografi Simetris (AES-256-CBC)
     $namaEnc         = openssl_encrypt($data['nama_mahasiswa'], 'AES-256-CBC', $aesKey, 0, $iv);
     $nimEnc          = openssl_encrypt($data['nim'], 'AES-256-CBC', $aesKey, 0, $iv);
     $prodiEnc        = openssl_encrypt($data['prodi'], 'AES-256-CBC', $aesKey, 0, $iv);
@@ -47,7 +84,6 @@ function hybridEncryptBeritaAcara($data, $publicKeyPath) {
     $catatanEnc      = openssl_encrypt($data['catatan_revisi'], 'AES-256-CBC', $aesKey, 0, $iv);
     $keputusanEnc    = openssl_encrypt($data['keputusan_sidang'], 'AES-256-CBC', $aesKey, 0, $iv);
 
-    // 3. Enkripsi kunci AES dengan Kriptografi Asimetris (RSA-2048 Public Key)
     openssl_public_encrypt($aesKey, $encryptedAesKey, $pubKey);
 
     return [
@@ -63,7 +99,7 @@ function hybridEncryptBeritaAcara($data, $publicKeyPath) {
 }
 
 /**
- * Dekripsi Hybrid Berita Acara Sidang (RSA-2048 Private Key + AES-256-CBC)
+ * Dekripsi Hybrid Berita Acara Sidang dari database (RSA-2048 Private Key + AES-256-CBC)
  */
 function hybridDecryptBeritaAcara($row, $privateKeyPem) {
     $privKey = @openssl_pkey_get_private($privateKeyPem);
@@ -71,13 +107,11 @@ function hybridDecryptBeritaAcara($row, $privateKeyPem) {
         return false;
     }
 
-    // 1. Dekripsi kunci AES menggunakan RSA Private Key
     $encryptedAesKey = base64_decode($row['encrypted_aes_key']);
     if (!@openssl_private_decrypt($encryptedAesKey, $aesKey, $privKey)) {
         return false;
     }
 
-    // 2. Dekripsi seluruh konten berita acara menggunakan AES-256-CBC
     $iv = base64_decode($row['iv']);
 
     return [

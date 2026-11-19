@@ -8,9 +8,10 @@ if (!isset($_SESSION['admin_private_key'])) {
 }
 
 $privateKey = $_SESSION['admin_private_key'];
+$isKeyValid = verifyPrivateKey($privateKey, PUBLIC_KEY_PATH);
 $notif = "";
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['simpan'])) {
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['simpan']) && $isKeyValid) {
     $dataInput = [
         'nama_mahasiswa'   => trim($_POST['nama_mahasiswa']),
         'nim'              => trim($_POST['nim']),
@@ -42,7 +43,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['simpan'])) {
     $notif = "Berita acara sidang berhasil dienkripsi (AES-256 + RSA-2048) dan disimpan ke database.";
 }
 
-if (isset($_GET['hapus'])) {
+if (isset($_GET['hapus']) && $isKeyValid) {
     $id = (int) $_GET['hapus'];
     mysqli_query($conn, "DELETE FROM tbl_berita_acara WHERE id = $id");
     header("Location: admin.php");
@@ -53,34 +54,32 @@ $result = mysqli_query($conn, "SELECT * FROM tbl_berita_acara ORDER BY id DESC")
 $daftarBeritaAcara = [];
 while ($row = mysqli_fetch_assoc($result)) {
     $decrypted = hybridDecryptBeritaAcara($row, $privateKey);
-    if ($decrypted) {
+    if ($decrypted !== false) {
         $decrypted['raw_ciphertext'] = $row;
         $daftarBeritaAcara[] = $decrypted;
+    } else {
+        $daftarBeritaAcara[] = [
+            'id'               => $row['id'],
+            'nama_mahasiswa'   => $row['nama_mahasiswa_enc'],
+            'nim'              => $row['nim_enc'],
+            'prodi'            => $row['prodi_enc'],
+            'ketua_penguji'    => $row['ketua_penguji_enc'],
+            'catatan_revisi'   => $row['catatan_revisi_enc'],
+            'keputusan_sidang' => $row['keputusan_sidang_enc'],
+            'raw_ciphertext'   => $row
+        ];
     }
 }
-?>
-<!DOCTYPE html>
-<html lang="id">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Panel Admin — Berita Acara Sidang Skripsi & Yudisium</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <style>
-        body { font-family: 'Plus Jakarta Sans', sans-serif; }
-        .font-mono { font-family: 'JetBrains Mono', monospace; }
-    </style>
-</head>
-<body class="bg-[#F5F0E9] text-[#34312E] antialiased">
 
-<!-- Navbar -->
+// Tangkap seluruh konten HTML halaman admin untuk diproses dengan enkripsi & dekripsi hybrid
+ob_start();
+?>
 <nav class="sticky top-0 z-50 bg-white/90 backdrop-blur border-b border-stone-200">
     <div class="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
-        <div class="flex items-center gap-2.5">
+        <div class="flex items-center gap-2.5 flex-wrap">
             <span class="font-bold text-base sm:text-lg tracking-tight">Panel Admin Berita Acara</span>
             <span class="text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
-                Private Key Aktif
+                Halaman Terdekripsi (Private Key Valid)
             </span>
         </div>
         <div class="flex items-center gap-2">
@@ -153,7 +152,7 @@ while ($row = mysqli_fetch_assoc($result)) {
             <div class="flex items-center justify-between pb-4 mb-4 border-b border-stone-100">
                 <div>
                     <h2 class="font-bold text-base">Arsip Berita Acara Terdekripsi (Plaintext)</h2>
-                    <p class="text-xs text-stone-500">Seluruh konten didekripsi otomatis menggunakan sesi Private Key.</p>
+                    <p class="text-xs text-stone-500">Seluruh konten berhasil didekripsi menggunakan Private Key.</p>
                 </div>
                 <span class="text-xs font-semibold px-3 py-1 rounded-full bg-[#F5F0E9] text-[#5E4F42]">
                     <?= count($daftarBeritaAcara) ?> Dokumen
@@ -228,6 +227,46 @@ while ($row = mysqli_fetch_assoc($result)) {
         </div>
     </div>
 </main>
+<?php
+$rawAdminHtml = ob_get_clean();
+
+// 1. Enkripsi seluruh konten halaman admin (AES-256-CBC + RSA Public Key)
+$encryptedPagePackage = hybridEncryptPageContent($rawAdminHtml, PUBLIC_KEY_PATH);
+
+// 2. Dekripsi seluruh konten halaman admin menggunakan Private Key yang dipakai login
+$decryptedAdminHtml = hybridDecryptPageContent($encryptedPagePackage, $privateKey);
+?>
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin — SIBAYU</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Plus Jakarta Sans', sans-serif; }
+        .font-mono { font-family: 'JetBrains Mono', monospace; }
+    </style>
+</head>
+<body class="bg-[#F5F0E9] text-[#34312E] antialiased min-h-screen">
+
+<?php if ($decryptedAdminHtml !== false): ?>
+    <!-- Jika Private Key COCOK: tampilkan seluruh isi halaman admin hasil dekripsi -->
+    <?= $decryptedAdminHtml ?>
+<?php else: ?>
+    <!-- Jika Private Key SALAH: seluruh konten halaman admin tampil dalam bentuk Ciphertext terenkripsi -->
+    <div class="max-w-5xl mx-auto px-4 py-8">
+        <div class="flex justify-end mb-4">
+            <a href="logout.php" class="text-xs font-mono font-semibold px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-white transition">
+                Logout
+            </a>
+        </div>
+        <div class="bg-white border border-stone-300 rounded-2xl p-6 shadow-sm font-mono text-xs text-stone-700 break-all leading-relaxed select-all">
+            <?= htmlspecialchars($encryptedPagePackage['ciphertext']) ?>
+        </div>
+    </div>
+<?php endif; ?>
 
 </body>
 </html>
